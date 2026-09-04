@@ -20,7 +20,7 @@ export const ProprintLogo: React.FC<ProprintLogoProps> = ({
 
   return (
     <img
-      src="/proprint-logo.png"
+      src="/logo.png"
       alt="Proprint"
       className={`${sizeConfigs[size]} w-auto object-contain ${className}`}
     />
