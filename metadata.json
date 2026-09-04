@@ -1,0 +1,6 @@
+{
+  "name": "Proprint Printing & Visiting Card Studio",
+  "description": "Commercial printing, 3D visiting card customizer, packaging, graphic design portfolio and express delivery.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
