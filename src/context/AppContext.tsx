@@ -17,6 +17,26 @@ import {
 } from '../types';
 import { Language, TRANSLATIONS, Translations } from '../data/translations';
 import { openDirectWhatsApp } from '../utils/whatsapp';
+import { Capacitor } from '@capacitor/core';
+
+// Backend API base URL.
+// Using the absolute Render URL makes API calls work from both the web app
+// and the Capacitor Android app.
+const API_BASE_URL = 'https://proprintfinal.onrender.com/api';
+
+const apiFetch = (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+  if (typeof input === 'string' && input.startsWith('/api')) {
+    // Web: keep using the existing /api rewrite.
+    // Capacitor: call the Render backend directly because the app has no
+    // hosting-layer rewrite for relative /api URLs.
+    if (Capacitor.isNativePlatform()) {
+      const apiPath = input.slice('/api'.length);
+      return fetch(`${API_BASE_URL}${apiPath}`, init);
+    }
+  }
+
+  return fetch(input, init);
+};
 
 interface ToastInfo {
   id: number;
@@ -564,7 +584,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const fetchAllInitialData = async () => {
     try {
       // 1. Fetch Users
-      const usersRes = await fetch('/api/users');
+      const usersRes = await apiFetch('/api/users');
       if (usersRes.ok) {
         const uData = await usersRes.json();
         if (uData.success && Array.isArray(uData.users) && uData.users.length > 0) {
@@ -587,7 +607,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       // 2. Fetch Products
-      const prodRes = await fetch('/api/products');
+      const prodRes = await apiFetch('/api/products');
       if (prodRes.ok) {
         const pData = await prodRes.json();
         if (pData.success && Array.isArray(pData.products) && pData.products.length > 0) {
@@ -597,7 +617,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       // 3. Fetch Categories
-      const catRes = await fetch('/api/categories');
+      const catRes = await apiFetch('/api/categories');
       if (catRes.ok) {
         const cData = await catRes.json();
         if (cData.success && Array.isArray(cData.categories) && cData.categories.length > 0) {
@@ -607,7 +627,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       // 4. Fetch Orders
-      const ordRes = await fetch('/api/orders');
+      const ordRes = await apiFetch('/api/orders');
       if (ordRes.ok) {
         const oData = await ordRes.json();
         if (oData.success && Array.isArray(oData.orders)) {
@@ -617,7 +637,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       // 5. Fetch Hero Slides
-      const slidesRes = await fetch('/api/hero-slides');
+      const slidesRes = await apiFetch('/api/hero-slides');
       if (slidesRes.ok) {
         const sData = await slidesRes.json();
         if (sData.success && Array.isArray(sData.slides) && sData.slides.length > 0) {
@@ -627,7 +647,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       // 6. Fetch Reviews
-      const revRes = await fetch('/api/reviews');
+      const revRes = await apiFetch('/api/reviews');
       if (revRes.ok) {
         const rData = await revRes.json();
         if (rData.success && Array.isArray(rData.reviews) && rData.reviews.length > 0) {
@@ -637,7 +657,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       // 7. Fetch Quotes
-      const qRes = await fetch('/api/quotes');
+      const qRes = await apiFetch('/api/quotes');
       if (qRes.ok) {
         const qData = await qRes.json();
         if (qData.success && Array.isArray(qData.quotes)) {
@@ -647,7 +667,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       // 8. Fetch Payments
-      const payRes = await fetch('/api/payments');
+      const payRes = await apiFetch('/api/payments');
       if (payRes.ok) {
         const pData = await payRes.json();
         if (pData.success && Array.isArray(pData.payments)) {
@@ -657,7 +677,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       // 9. Fetch Services
-      const srvRes = await fetch('/api/services');
+      const srvRes = await apiFetch('/api/services');
       if (srvRes.ok) {
         const sData = await srvRes.json();
         if (sData.success && Array.isArray(sData.services) && sData.services.length > 0) {
@@ -667,7 +687,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       // 10. Fetch Portfolio / Design Works
-      const portRes = await fetch('/api/portfolio');
+      const portRes = await apiFetch('/api/portfolio');
       if (portRes.ok) {
         const portData = await portRes.json();
         if (portData.success && Array.isArray(portData.portfolio) && portData.portfolio.length > 0) {
@@ -746,7 +766,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
 
     setProducts((prev) => [newProduct, ...prev]);
-    fetch('/api/products', {
+    apiFetch('/api/products', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newProduct)
@@ -760,7 +780,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setProducts((prev) =>
       prev.map((p) => (p.id === productId ? { ...p, ...updatedData } : p))
     );
-    fetch(`/api/products/${productId}`, {
+    apiFetch(`/api/products/${productId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updatedData)
@@ -771,7 +791,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const deleteProduct = (productId: string) => {
     setProducts((prev) => prev.filter((p) => p.id !== productId));
-    fetch(`/api/products/${productId}`, {
+    apiFetch(`/api/products/${productId}`, {
       method: 'DELETE'
     }).catch(err => console.warn('Product delete API sync error:', err));
 
@@ -793,7 +813,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       description: catData.description || 'Custom print collection'
     };
     setCategories((prev) => [newCat, ...prev]);
-    fetch('/api/categories', {
+    apiFetch('/api/categories', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newCat)
@@ -806,7 +826,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setCategories((prev) =>
       prev.map((c) => (c.id === categoryId ? { ...c, ...updatedData } : c))
     );
-    fetch(`/api/categories/${categoryId}`, {
+    apiFetch(`/api/categories/${categoryId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updatedData)
@@ -817,7 +837,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const deleteCategory = (categoryId: string) => {
     setCategories((prev) => prev.filter((c) => c.id !== categoryId));
-    fetch(`/api/categories/${categoryId}`, {
+    apiFetch(`/api/categories/${categoryId}`, {
       method: 'DELETE'
     }).catch(err => console.warn('Category delete API sync error:', err));
 
@@ -838,7 +858,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       badge: serviceData.badge || undefined
     };
     setServices((prev) => [newService, ...prev]);
-    fetch('/api/services', {
+    apiFetch('/api/services', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newService)
@@ -851,7 +871,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setServices((prev) =>
       prev.map((s) => (s.id === serviceId ? { ...s, ...updatedData } : s))
     );
-    fetch(`/api/services/${serviceId}`, {
+    apiFetch(`/api/services/${serviceId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updatedData)
@@ -862,7 +882,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const deleteService = (serviceId: string) => {
     setServices((prev) => prev.filter((s) => s.id !== serviceId));
-    fetch(`/api/services/${serviceId}`, {
+    apiFetch(`/api/services/${serviceId}`, {
       method: 'DELETE'
     }).catch(err => console.warn('Service delete API sync error:', err));
 
@@ -895,7 +915,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setPortfolio((prev) => [newItem, ...prev]);
 
     try {
-      const res = await fetch('/api/portfolio', {
+      const res = await apiFetch('/api/portfolio', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newItem)
@@ -918,7 +938,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     );
 
     try {
-      const res = await fetch(`/api/portfolio/${id}`, {
+      const res = await apiFetch(`/api/portfolio/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedData)
@@ -938,7 +958,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const deletePortfolioItem = async (id: string): Promise<boolean> => {
     setPortfolio((prev) => prev.filter((item) => item.id !== id));
     try {
-      const res = await fetch(`/api/portfolio/${id}`, {
+      const res = await apiFetch(`/api/portfolio/${id}`, {
         method: 'DELETE'
       });
       const data = await res.json();
@@ -955,7 +975,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const refreshPortfolio = async () => {
     try {
-      const res = await fetch('/api/portfolio');
+      const res = await apiFetch('/api/portfolio');
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.portfolio)) {
@@ -984,7 +1004,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       createdAt: 'Today'
     };
     setUsers((prev) => [newUser, ...prev]);
-    fetch('/api/auth/register', {
+    apiFetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newUser)
@@ -999,7 +1019,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         u.id === emailOrId || u.email === emailOrId ? { ...u, ...updatedData } : u
       )
     );
-    fetch(`/api/users/${emailOrId}`, {
+    apiFetch(`/api/users/${emailOrId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updatedData)
@@ -1010,7 +1030,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const deleteUser = (emailOrId: string) => {
     setUsers((prev) => prev.filter((u) => u.id !== emailOrId && u.email !== emailOrId));
-    fetch(`/api/users/${emailOrId}`, {
+    apiFetch(`/api/users/${emailOrId}`, {
       method: 'DELETE'
     }).catch(err => console.warn('User delete API sync error:', err));
 
@@ -1022,7 +1042,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setPayments((prev) =>
       prev.map((p) => (p.id === paymentId ? { ...p, status } : p))
     );
-    fetch(`/api/payments/${paymentId}/status`, {
+    apiFetch(`/api/payments/${paymentId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status })
@@ -1036,7 +1056,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setReviews((prev) =>
       prev.map((r) => (r.id === reviewId ? { ...r, status } : r))
     );
-    fetch(`/api/reviews/${reviewId}/status`, {
+    apiFetch(`/api/reviews/${reviewId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status })
@@ -1047,7 +1067,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const deleteReview = (reviewId: string) => {
     setReviews((prev) => prev.filter((r) => r.id !== reviewId));
-    fetch(`/api/reviews/${reviewId}`, {
+    apiFetch(`/api/reviews/${reviewId}`, {
       method: 'DELETE'
     }).catch(err => console.warn('Review delete API sync error:', err));
 
@@ -1067,7 +1087,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       verifiedBuyer: true
     };
     setReviews((prev) => [newRev, ...prev]);
-    fetch('/api/reviews', {
+    apiFetch('/api/reviews', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newRev)
@@ -1078,7 +1098,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const deleteOrder = (orderId: string) => {
     setOrders((prev) => prev.filter((o) => o.id !== orderId && o.orderNumber !== orderId));
-    fetch(`/api/orders/${orderId}`, {
+    apiFetch(`/api/orders/${orderId}`, {
       method: 'DELETE'
     }).catch(err => console.warn('Order delete API sync error:', err));
 
@@ -1090,15 +1110,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const fetchBackendData = async () => {
       try {
         const [ordersRes, usersRes, productsRes, categoriesRes, servicesRes, reviewsRes, quotesRes, paymentsRes, portfolioRes] = await Promise.allSettled([
-          fetch('/api/orders').then(r => r.ok ? r.json() : null),
-          fetch('/api/users').then(r => r.ok ? r.json() : null),
-          fetch('/api/products').then(r => r.ok ? r.json() : null),
-          fetch('/api/categories').then(r => r.ok ? r.json() : null),
-          fetch('/api/services').then(r => r.ok ? r.json() : null),
-          fetch('/api/reviews').then(r => r.ok ? r.json() : null),
-          fetch('/api/quotes').then(r => r.ok ? r.json() : null),
-          fetch('/api/payments').then(r => r.ok ? r.json() : null),
-          fetch('/api/portfolio').then(r => r.ok ? r.json() : null)
+          apiFetch('/api/orders').then(r => r.ok ? r.json() : null),
+          apiFetch('/api/users').then(r => r.ok ? r.json() : null),
+          apiFetch('/api/products').then(r => r.ok ? r.json() : null),
+          apiFetch('/api/categories').then(r => r.ok ? r.json() : null),
+          apiFetch('/api/services').then(r => r.ok ? r.json() : null),
+          apiFetch('/api/reviews').then(r => r.ok ? r.json() : null),
+          apiFetch('/api/quotes').then(r => r.ok ? r.json() : null),
+          apiFetch('/api/payments').then(r => r.ok ? r.json() : null),
+          apiFetch('/api/portfolio').then(r => r.ok ? r.json() : null)
         ]);
 
         if (ordersRes.status === 'fulfilled' && ordersRes.value?.success && Array.isArray(ordersRes.value.orders) && ordersRes.value.orders.length > 0) {
@@ -1245,7 +1265,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     );
 
     // Sync to Express SQL database
-    fetch(`/api/orders/${orderId}/status`, {
+    apiFetch(`/api/orders/${orderId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus })
@@ -1266,7 +1286,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return q;
       })
     );
-    fetch(`/api/quotes/${quoteId}/status`, {
+    apiFetch(`/api/quotes/${quoteId}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus })
@@ -1302,7 +1322,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setHeroSlides(prev => [...prev, newSlide]);
 
     try {
-      const res = await fetch('/api/hero-slides', {
+      const res = await apiFetch('/api/hero-slides', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newSlide)
@@ -1329,7 +1349,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     );
 
     try {
-      const res = await fetch(`/api/hero-slides/${id}`, {
+      const res = await apiFetch(`/api/hero-slides/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedData)
@@ -1354,7 +1374,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setHeroSlides(prev => prev.filter(s => s.id !== id));
 
     try {
-      const res = await fetch(`/api/hero-slides/${id}`, {
+      const res = await apiFetch(`/api/hero-slides/${id}`, {
         method: 'DELETE'
       });
       if (res.ok) {
@@ -1380,7 +1400,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setHeroSlides(reordered);
 
     try {
-      await fetch('/api/hero-slides/reorder', {
+      await apiFetch('/api/hero-slides/reorder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderedIds })
@@ -1394,7 +1414,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const resetHeroSlides = async (): Promise<void> => {
     setHeroSlides(DEFAULT_HERO_SLIDES);
     try {
-      await fetch('/api/hero-slides/reset', { method: 'POST' });
+      await apiFetch('/api/hero-slides/reset', { method: 'POST' });
       showToast('Hero banners reset to default layout', 'info');
     } catch (err) {
       console.error('Error resetting hero slides:', err);
@@ -1403,7 +1423,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const refreshHeroSlides = async (): Promise<void> => {
     try {
-      const res = await fetch('/api/hero-slides');
+      const res = await apiFetch('/api/hero-slides');
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.slides)) {
@@ -1458,7 +1478,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       localStorage.setItem('proprint_user', JSON.stringify(adminUser));
 
       // Async backend record
-      fetch('/api/auth/login', {
+      apiFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: cleanUser, password: cleanPass })
@@ -1498,7 +1518,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       localStorage.setItem('proprint_coupon', 'NEWUSER');
 
       // Async backend record
-      fetch('/api/auth/login', {
+      apiFetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: cleanUser, password: cleanPass })
@@ -1537,7 +1557,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('proprint_user', JSON.stringify(customUser));
 
     // Async backend record
-    fetch('/api/auth/login', {
+    apiFetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: cleanUser, password: cleanPass })
@@ -1587,7 +1607,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     // Record login to backend
-    fetch('/api/auth/login', {
+    apiFetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone: cleanPhone, role: 'customer' })
@@ -1627,7 +1647,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     // Backend sync
     if (updatedUser.id) {
       try {
-        await fetch(`/api/users/${updatedUser.id}`, {
+        await apiFetch(`/api/users/${updatedUser.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1680,7 +1700,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     if (updatedUser.id) {
       try {
-        await fetch(`/api/users/${updatedUser.id}`, {
+        await apiFetch(`/api/users/${updatedUser.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ addresses: updatedAddresses })
@@ -1723,7 +1743,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     if (updatedUser.id) {
       try {
-        await fetch(`/api/users/${updatedUser.id}`, {
+        await apiFetch(`/api/users/${updatedUser.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ addresses: updatedAddresses })
@@ -1762,7 +1782,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     if (updatedUser.id) {
       try {
-        await fetch(`/api/users/${updatedUser.id}`, {
+        await apiFetch(`/api/users/${updatedUser.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ addresses: updatedAddresses })
@@ -1799,7 +1819,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     if (updatedUser.id) {
       try {
-        await fetch(`/api/users/${updatedUser.id}`, {
+        await apiFetch(`/api/users/${updatedUser.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ addresses: updatedAddresses })
@@ -1830,7 +1850,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setCurrentUser(adminUser);
     localStorage.setItem('proprint_user', JSON.stringify(adminUser));
 
-    fetch('/api/auth/login', {
+    apiFetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username: 'admin@proprint.in', role: 'admin' })
@@ -1926,7 +1946,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
 
         if (currentUser.id) {
-          fetch(`/api/users/${currentUser.id}`, {
+          apiFetch(`/api/users/${currentUser.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1941,7 +1961,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     // Persist to backend SQLite & Express server
-    fetch('/api/orders', {
+    apiFetch('/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2068,7 +2088,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     localStorage.setItem('proprint_orders', JSON.stringify(updated));
 
     // Persist to backend SQLite
-    fetch('/api/orders', {
+    apiFetch('/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2112,7 +2132,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       ...newQuote
     };
     setQuotes((prev) => [quoteItem, ...prev]);
-    fetch('/api/quotes', {
+    apiFetch('/api/quotes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(quoteItem)
