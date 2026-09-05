@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import { Header } from './components/Header';
@@ -51,8 +51,88 @@ import { AdminDesignWorksPage } from './pages/admin/AdminDesignWorksPage';
 import { AdminDesignWorkFormPage } from './pages/admin/AdminDesignWorkFormPage';
 import { Product } from './types';
 
+// ========== PULL-TO-REFRESH COMPONENT ==========
+const PullToRefresh: React.FC<{ children: React.ReactNode; onRefresh: () => Promise<void> }> = ({
+  children,
+  onRefresh,
+}) => {
+  const [startY, setStartY] = useState(0);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleTouchStart = (e: TouchEvent) => {
+    // Only enable pull-to-refresh if at the top of the scrollable area
+    const scrollable = containerRef.current?.querySelector('.pull-to-refresh-scroll');
+    if (scrollable && scrollable.scrollTop === 0) {
+      setStartY(e.touches[0].clientY);
+    }
+  };
+
+  const handleTouchMove = (e: TouchEvent) => {
+    if (startY === 0) return;
+    const delta = e.touches[0].clientY - startY;
+    if (delta > 0 && delta < 120) {
+      setPullDistance(delta);
+      e.preventDefault();
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    if (pullDistance > 60 && !isRefreshing) {
+      setIsRefreshing(true);
+      await onRefresh();
+      setIsRefreshing(false);
+    }
+    setStartY(0);
+    setPullDistance(0);
+  };
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const scrollable = el.querySelector('.pull-to-refresh-scroll') as HTMLElement;
+    if (!scrollable) return;
+
+    scrollable.addEventListener('touchstart', handleTouchStart);
+    scrollable.addEventListener('touchmove', handleTouchMove);
+    scrollable.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      scrollable.removeEventListener('touchstart', handleTouchStart);
+      scrollable.removeEventListener('touchmove', handleTouchMove);
+      scrollable.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [startY, pullDistance, isRefreshing]);
+
+  return (
+    <div ref={containerRef} className="h-full flex flex-col">
+      <div
+        className="pull-to-refresh-indicator"
+        style={{
+          height: isRefreshing ? 50 : pullDistance * 0.6,
+          transition: isRefreshing ? 'height 0.2s ease' : 'none',
+          overflow: 'hidden',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '0.9rem',
+          color: '#64748b',
+        }}
+      >
+        {isRefreshing ? 'Refreshing...' : pullDistance > 30 ? 'Release to refresh' : 'Pull down to refresh'}
+      </div>
+      <div className="pull-to-refresh-scroll flex-1 overflow-y-auto">{children}</div>
+    </div>
+  );
+};
+
+// ========== MAIN APP CONTENT ==========
 const MainAppContent: React.FC = () => {
   const navigate = useNavigate();
+  const { refreshAllData } = useApp();
+
   // Global Modals State
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
   const [wishlistDrawerOpen, setWishlistDrawerOpen] = useState(false);
@@ -84,7 +164,6 @@ const MainAppContent: React.FC = () => {
     <div className="min-h-screen bg-slate-50 flex flex-col justify-between text-slate-900 selection:bg-rose-600 selection:text-white">
       <ScrollToTop />
 
-      {/* Primary Sticky Header (Hidden on Login & Admin) */}
       {!isMinimalLayout && (
         <Header
           onOpenCart={() => setCartDrawerOpen(true)}
@@ -96,124 +175,91 @@ const MainAppContent: React.FC = () => {
         />
       )}
 
-      {/* Main Page Routing Views */}
+      {/* Main content wrapped with PullToRefresh (only on non‑admin, non‑login pages) */}
       <main className={`flex-1 ${!isMinimalLayout ? 'pb-16 lg:pb-0' : ''}`}>
-        <Routes>
-          <Route 
-            path="/" 
-            element={
-              <HomePage 
-                onSelectProduct={handleSelectProduct}
-                onOpenQuoteModal={handleOpenQuoteModal}
-                onOpenWhatsApp={handleOpenWhatsAppModal}
+        {isMinimalLayout ? (
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/admin/*" element={<AdminLayout />}>
+              {/* Admin routes remain unchanged */}
+              <Route index element={<AdminDashboardPage />} />
+              <Route path="dashboard" element={<AdminDashboardPage />} />
+              <Route path="products" element={<AdminProductsPage />} />
+              <Route path="products/add" element={<AdminProductFormPage />} />
+              <Route path="products/edit/:id" element={<AdminProductFormPage />} />
+              <Route path="best-sellers" element={<AdminBestSellersPage />} />
+              <Route path="design-works" element={<AdminDesignWorksPage />} />
+              <Route path="design-works/add" element={<AdminDesignWorkFormPage />} />
+              <Route path="design-works/edit/:id" element={<AdminDesignWorkFormPage />} />
+              <Route path="hero-banners" element={<AdminHeroBannersPage />} />
+              <Route path="hero" element={<AdminHeroBannersPage />} />
+              <Route path="banners" element={<AdminHeroBannersPage />} />
+              <Route path="services" element={<AdminServicesPage />} />
+              <Route path="services/add" element={<AdminServiceFormPage />} />
+              <Route path="services/edit/:id" element={<AdminServiceFormPage />} />
+              <Route path="orders" element={<AdminOrdersPage />} />
+              <Route path="orders/new" element={<AdminCreateOrderPage />} />
+              <Route path="orders/add" element={<AdminCreateOrderPage />} />
+              <Route path="orders/:id" element={<AdminOrderDetailPage />} />
+              <Route path="users" element={<AdminUsersPage />} />
+              <Route path="users/add" element={<AdminUserFormPage />} />
+              <Route path="categories" element={<AdminCategoriesPage />} />
+              <Route path="categories/add" element={<AdminCategoryFormPage />} />
+              <Route path="categories/edit/:id" element={<AdminCategoryFormPage />} />
+              <Route path="payments" element={<AdminPaymentsPage />} />
+              <Route path="reviews" element={<AdminReviewsPage />} />
+              <Route path="settings" element={<AdminSettingsPage />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        ) : (
+          <PullToRefresh onRefresh={refreshAllData}>
+            <Routes>
+              <Route 
+                path="/" 
+                element={
+                  <HomePage 
+                    onSelectProduct={handleSelectProduct}
+                    onOpenQuoteModal={handleOpenQuoteModal}
+                    onOpenWhatsApp={handleOpenWhatsAppModal}
+                  />
+                } 
               />
-            } 
-          />
-          <Route 
-            path="/products" 
-            element={
-              <ProductsPage 
-                onSelectProduct={handleSelectProduct}
-                onOpenQuoteModal={handleOpenQuoteModal}
+              <Route 
+                path="/products" 
+                element={
+                  <ProductsPage 
+                    onSelectProduct={handleSelectProduct}
+                    onOpenQuoteModal={handleOpenQuoteModal}
+                  />
+                } 
               />
-            } 
-          />
-          <Route 
-            path="/product/:id" 
-            element={<ProductDetailPage />} 
-          />
-          <Route 
-            path="/visiting-cards" 
-            element={<VisitingCardPage />} 
-          />
-          <Route 
-            path="/portfolio" 
-            element={
-              <PortfolioPage 
-                onOpenQuoteModal={handleOpenQuoteModal}
-                onOpenWhatsApp={handleOpenWhatsAppModal}
+              <Route path="/product/:id" element={<ProductDetailPage />} />
+              <Route path="/visiting-cards" element={<VisitingCardPage />} />
+              <Route 
+                path="/portfolio" 
+                element={
+                  <PortfolioPage 
+                    onOpenQuoteModal={handleOpenQuoteModal}
+                    onOpenWhatsApp={handleOpenWhatsAppModal}
+                  />
+                } 
               />
-            } 
-          />
-          <Route 
-            path="/design-studio" 
-            element={<DesignStudioPage />} 
-          />
-          <Route 
-            path="/cart" 
-            element={<CartPage />} 
-          />
-          <Route 
-            path="/checkout" 
-            element={<CheckoutPage />} 
-          />
-          <Route 
-            path="/order-success" 
-            element={<OrderSuccessPage />} 
-          />
-          <Route 
-            path="/orders" 
-            element={<UserOrdersPage />} 
-          />
-          <Route 
-            path="/my-orders" 
-            element={<UserOrdersPage />} 
-          />
-          <Route 
-            path="/profile" 
-            element={<ProfilePage />} 
-          />
-          <Route 
-            path="/account" 
-            element={<ProfilePage />} 
-          />
-          <Route 
-            path="/login" 
-            element={<LoginPage />} 
-          />
-
-          {/* Admin Routes with Dedicated Pages and Layout */}
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<AdminDashboardPage />} />
-            <Route path="dashboard" element={<AdminDashboardPage />} />
-            <Route path="products" element={<AdminProductsPage />} />
-            <Route path="products/add" element={<AdminProductFormPage />} />
-            <Route path="products/edit/:id" element={<AdminProductFormPage />} />
-            <Route path="best-sellers" element={<AdminBestSellersPage />} />
-            <Route path="design-works" element={<AdminDesignWorksPage />} />
-            <Route path="design-works/add" element={<AdminDesignWorkFormPage />} />
-            <Route path="design-works/edit/:id" element={<AdminDesignWorkFormPage />} />
-            <Route path="hero-banners" element={<AdminHeroBannersPage />} />
-            <Route path="hero" element={<AdminHeroBannersPage />} />
-            <Route path="banners" element={<AdminHeroBannersPage />} />
-            <Route path="services" element={<AdminServicesPage />} />
-            <Route path="services/add" element={<AdminServiceFormPage />} />
-            <Route path="services/edit/:id" element={<AdminServiceFormPage />} />
-            <Route path="orders" element={<AdminOrdersPage />} />
-            <Route path="orders/new" element={<AdminCreateOrderPage />} />
-            <Route path="orders/add" element={<AdminCreateOrderPage />} />
-            <Route path="orders/:id" element={<AdminOrderDetailPage />} />
-            <Route path="users" element={<AdminUsersPage />} />
-            <Route path="users/add" element={<AdminUserFormPage />} />
-            <Route path="categories" element={<AdminCategoriesPage />} />
-            <Route path="categories/add" element={<AdminCategoryFormPage />} />
-            <Route path="categories/edit/:id" element={<AdminCategoryFormPage />} />
-            <Route path="payments" element={<AdminPaymentsPage />} />
-            <Route path="reviews" element={<AdminReviewsPage />} />
-            <Route path="settings" element={<AdminSettingsPage />} />
-          </Route>
-
-          <Route 
-            path="*" 
-            element={<Navigate to="/" replace />} 
-          />
-        </Routes>
+              <Route path="/design-studio" element={<DesignStudioPage />} />
+              <Route path="/cart" element={<CartPage />} />
+              <Route path="/checkout" element={<CheckoutPage />} />
+              <Route path="/order-success" element={<OrderSuccessPage />} />
+              <Route path="/orders" element={<UserOrdersPage />} />
+              <Route path="/my-orders" element={<UserOrdersPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/account" element={<ProfilePage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </PullToRefresh>
+        )}
       </main>
 
-      {/* Primary Master Footer (Hidden on Login & Admin) */}
       {!isMinimalLayout && <Footer />}
-
-      {/* Mobile Sticky Bottom Navigation Bar (Hidden on Login & Admin) */}
       {!isMinimalLayout && (
         <MobileBottomNav
           onOpenCart={() => setCartDrawerOpen(true)}
@@ -225,7 +271,7 @@ const MainAppContent: React.FC = () => {
         />
       )}
 
-      {/* Floating WhatsApp Action Button (Hidden on Login & Admin) */}
+      {/* WhatsApp floating button */}
       {!isMinimalLayout && (
         <button
           id="floating-whatsapp-btn"
@@ -246,22 +292,9 @@ const MainAppContent: React.FC = () => {
         </button>
       )}
 
-      {/* ================= MODALS & DRAWERS ================= */}
-
-      {/* Quick Cart Drawer */}
-      <CartDrawer
-        isOpen={cartDrawerOpen}
-        onClose={() => setCartDrawerOpen(false)}
-      />
-
-      {/* Saved Wishlist Drawer */}
-      <WishlistDrawer
-        isOpen={wishlistDrawerOpen}
-        onClose={() => setWishlistDrawerOpen(false)}
-        onSelectProduct={handleSelectProduct}
-      />
-
-      {/* User Account & Business Profile Modal */}
+      {/* Drawers & Modals */}
+      <CartDrawer isOpen={cartDrawerOpen} onClose={() => setCartDrawerOpen(false)} />
+      <WishlistDrawer isOpen={wishlistDrawerOpen} onClose={() => setWishlistDrawerOpen(false)} onSelectProduct={handleSelectProduct} />
       <AccountModal
         isOpen={accountModalOpen}
         onClose={() => setAccountModalOpen(false)}
@@ -270,32 +303,11 @@ const MainAppContent: React.FC = () => {
           setTrackOrderModalOpen(true);
         }}
       />
-
-      {/* Custom Wholesale Quote Modal */}
-      <GetQuoteModal
-        isOpen={quoteModalOpen}
-        onClose={() => setQuoteModalOpen(false)}
-        initialServiceOrProduct={quoteInitialService}
-      />
-
-      {/* Live Order Tracking Modal */}
-      <TrackOrderModal
-        isOpen={trackOrderModalOpen}
-        onClose={() => setTrackOrderModalOpen(false)}
-      />
-
-      {/* Quick 3D Visiting Card Modal */}
-      <DesignStudioModal
-        isOpen={designStudioModalOpen}
-        onClose={() => setDesignStudioModalOpen(false)}
-      />
-
-      {/* Auto-Prompt Profile Update Modal When Name Is Not Updated Upon Login */}
+      <GetQuoteModal isOpen={quoteModalOpen} onClose={() => setQuoteModalOpen(false)} initialServiceOrProduct={quoteInitialService} />
+      <TrackOrderModal isOpen={trackOrderModalOpen} onClose={() => setTrackOrderModalOpen(false)} />
+      <DesignStudioModal isOpen={designStudioModalOpen} onClose={() => setDesignStudioModalOpen(false)} />
       <UpdateProfileModal />
-
-      {/* Global Common Snackbar Notification */}
       <CommonSnackbar />
-
     </div>
   );
 };
